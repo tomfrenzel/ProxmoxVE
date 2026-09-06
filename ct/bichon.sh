@@ -5,7 +5,7 @@ source "$_cs_boot" 2>/dev/null || source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: Slaviša Arežina (tremor021)
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
-# Source: https://github.com/rustmailer/bichon
+# Source: https://github.com/birdrock00/havanese-bichon-sso
 
 APP="Bichon"
 var_tags="${var_tags:-email;archive}"
@@ -39,7 +39,7 @@ function update_script() {
   if [[ $CURRENT_VERSION != 1.* && $CURRENT_VERSION != 2.* ]]; then
     msg_error "Installed ${APP} version (${CURRENT_VERSION}) is too old for an automatic update to v2.x."
     msg_error "Please create a new ${APP} container and migrate your data manually."
-    msg_error "Guide: https://github.com/rustmailer/bichon/wiki/Bichon-v2.x-Migration-Guide"
+    msg_error "Guide: https://github.com/birdrock00/havanese-bichon-sso/wiki/Bichon-v2.x-Migration-Guide"
     exit
   fi
 
@@ -59,14 +59,14 @@ function update_script() {
     fi
   fi
 
-  if check_for_gh_release "bichon" "rustmailer/bichon"; then
+  if check_for_gh_release "bichon" "birdrock00/havanese-bichon-sso"; then
     msg_info "Stopping service"
     systemctl stop bichon
     msg_ok "Stopped service"
 
     create_backup /opt/bichon/bichon.env
 
-    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "bichon" "rustmailer/bichon" "prebuild" "latest" "/opt/bichon" "bichon-*-$(arch_resolve "x86_64" "aarch64")-unknown-linux-gnu.tar.gz"
+    CLEAN_INSTALL=1 fetch_and_deploy_gh_release "bichon" "birdrock00/havanese-bichon-sso" "prebuild" "latest" "/opt/bichon" "bichon-*-$(arch_resolve "x86_64" "aarch64")-unknown-linux-gnu.tar.gz"
     restore_backup
 
     if [ "$MIGRATE_V2" -eq 1 ]; then
