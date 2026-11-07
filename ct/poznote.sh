@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-_CS_DEFAULT_URL="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main"
 _cs_boot="${COMMUNITY_SCRIPTS_CORE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../../core}/core/build.func"
 source "$_cs_boot" 2>/dev/null || source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/build.func")
 # Copyright (c) 2021-2026 community-scripts ORG
@@ -44,14 +43,16 @@ function update_script() {
 
     msg_info "Deploying New Version"
     cp -r /opt/poznote/src/. /var/www/html/
-    chown -R www-data:www-data /var/www/html
     msg_ok "Deployed New Version"
 
     restore_backup
+    chown -R www-data:www-data /var/www/html
 
     msg_info "Running Poznote Initialization"
-    chmod +x /opt/poznote/init.sh
-    $STD /opt/poznote/init.sh
+    POZNOTE_INIT=/opt/poznote/docker/init.sh
+    [[ -f "$POZNOTE_INIT" ]] || POZNOTE_INIT=/opt/poznote/init.sh
+    chmod +x "$POZNOTE_INIT"
+    $STD "$POZNOTE_INIT"
     msg_ok "Initialized Poznote Data Directory"
 
     msg_info "Updating Nginx Configuration"
@@ -68,7 +69,7 @@ map \$uri \$poznote_coop {
 
 server {
     listen 8040;
-    root /var/www/html;
+    root /var/www/html/public;
     index index.php index.html;
 
     gzip on;
@@ -144,10 +145,12 @@ server {
     }
 
     location ~ ^/data/users/[0-9]+/backgrounds/ {
+        root /var/www/html;
         try_files \$uri =404;
     }
 
     location ~ ^/data/css/[A-Za-z0-9._-]+\.css$ {
+        root /var/www/html;
         try_files \$uri =404;
     }
 

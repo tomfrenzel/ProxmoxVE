@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-_CS_DEFAULT_URL="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main"
 _cs_boot="${COMMUNITY_SCRIPTS_CORE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../../core}/core/build.func"
 source "$_cs_boot" 2>/dev/null || source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/build.func")
 # Copyright (c) 2021-2026 tteck
@@ -23,7 +22,7 @@ if [[ "${var_os:-}" == "alpine" ]]; then
   var_disk="${var_disk:-1}"
   var_version="${var_version:-3.24}"
 else
-  var_ram="${var_ram:-512}"
+  var_ram="${var_ram:-1024}"
   var_disk="${var_disk:-4}"
   var_version="${var_version:-13}"
 fi
@@ -42,7 +41,7 @@ update_deb_based() {
   ensure_dependencies git
 
   msg_info "Updating LXC"
-  $STD apt update
+  apt_update_safe
   $STD apt upgrade -y
   if [[ -d /etc/wgdashboard ]]; then
     sleep 2

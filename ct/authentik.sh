@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-_CS_DEFAULT_URL="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main"
 _cs_boot="${COMMUNITY_SCRIPTS_CORE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../../core}/core/build.func"
 source "$_cs_boot" 2>/dev/null || source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/build.func")
 # Copyright (c) 2021-2026 community-scripts ORG
@@ -43,13 +42,12 @@ function update_script() {
   ensure_dependencies crossbuild-essential-$(arch_resolve) gcc-$(arch_resolve "x86-64" "aarch64")-linux-gnu cmake clang libunwind-18-dev
   msg_ok "Update dependencies"
 
-  NODE_VERSION="26" NODE_MODULE=pnpm@11 setup_nodejs
+  NODE_VERSION="26" NODE_MODULE=pnpm@12 setup_nodejs
   $STD uv cache clean
-  UV_PYTHON_INSTALL_DIR="/usr/local/bin" PYTHON_VERSION="3.14.7" setup_uv
   RUST_PROFILE="minimal" RUST_TOOLCHAIN="stable" setup_rust
   setup_yq
 
-  AUTHENTIK_VERSION="version/2026.8.1"
+  AUTHENTIK_VERSION="version/2026.8.5"
   # Source: https://github.com/goauthentik/fips/blob/main/Makefile#L26
   XMLSEC_VERSION="1.3.12"
 
@@ -95,6 +93,7 @@ function update_script() {
     fi
 
     CLEAN_INSTALL=1 fetch_and_deploy_gh_release "authentik" "goauthentik/authentik" "tarball" "${AUTHENTIK_VERSION}" "/opt/authentik"
+    UV_PYTHON_INSTALL_DIR="/usr/local/bin" PYTHON_VERSION="3.14.7" UV_PROJECT_DIR="/opt/authentik" setup_uv
     GO_VERSION="$(grep -m1 '^go ' /opt/authentik/go.mod | awk '{print $2}')" setup_go
 
     msg_info "Configuring rust"
@@ -106,7 +105,7 @@ function update_script() {
     msg_info "Updating web"
     export NODE_ENV="production"
 	  cd /opt/authentik
-	  $STD node ./scripts/node/lint-runtime.mjs ./web
+	  $STD node ./scripts/node/lint-runtime.ts ./web
 	  cd /opt/authentik/web
 	  $STD pnpm install --frozen-lockfile
 	  $STD pnpm run build
@@ -137,7 +136,6 @@ function update_script() {
     export UV_COMPILE_BYTECODE="1"
     export UV_LINK_MODE="copy"
     export UV_NATIVE_TLS="1"
-    export UV_HTTP_TIMEOUT="300"
     export RUSTUP_PERMIT_COPY_RENAME="true"
     export UV_PYTHON_INSTALL_DIR="/usr/local/bin"
     cd /opt/authentik
@@ -157,7 +155,8 @@ function update_script() {
     rm -r /opt/authentik/blueprints
     $STD find /opt/authentik-data -path '*/lost+found' -prune -o -exec chown authentik:authentik {} +
 
-    if [[ $MAJOR == 2026 && $MINOR -lt 8 ]]; then
+    # Also catch installs whose version marker already reads 2026.8.x but whose units were never migrated
+    if [[ $MAJOR == 2026 && $MINOR -lt 8 ]] || grep -q "ExecStart=/opt/authentik/authentik-server" /etc/systemd/system/authentik-server.service; then
 	    msg_info "Updating Worker and Server config (from $MAJOR.$MINOR)"
       cat <<EOF >>/etc/default/authentik-server
 RUST_BACKTRACE=full
@@ -184,8 +183,12 @@ EOF
 
     msg_info "Updating services"
     sed -i 's/authentik Go Server (API Gateway)/authentik Server/g' /etc/systemd/system/authentik-server.service
-	  sed -i '/ExecStart=/i ExecStartPre=/usr/bin/mkdir -p "${TMPDIR}"' /etc/systemd/system/authentik-server.service
-    sed -i '/ExecStart=/i ExecStartPre=/usr/bin/mkdir -p "${TMPDIR}"' /etc/systemd/system/authentik-worker.service
+    if ! grep -qF -- 'ExecStartPre=/usr/bin/mkdir -p "${TMPDIR}"' /etc/systemd/system/authentik-server.service; then
+	    sed -i '/ExecStart=/i ExecStartPre=/usr/bin/mkdir -p "${TMPDIR}"' /etc/systemd/system/authentik-server.service
+    fi
+    if ! grep -qF -- 'ExecStartPre=/usr/bin/mkdir -p "${TMPDIR}"' /etc/systemd/system/authentik-worker.service; then
+      sed -i '/ExecStart=/i ExecStartPre=/usr/bin/mkdir -p "${TMPDIR}"' /etc/systemd/system/authentik-worker.service
+    fi
     systemctl daemon-reload
     msg_ok "Updated services"
 
@@ -224,8 +227,8 @@ for i in {1..10}; do
   sleep 1
 done
 $STD pct exec "$CTID" -- bash -c "mkdir -p /opt/authentik-data/{certs,media,geoip,templates}; \
-  cp /opt/authentik/tests/GeoLite2-ASN-Test.mmdb /opt/authentik-data/geoip/GeoLite2-ASN.mmdb; \
-  cp /opt/authentik/tests/GeoLite2-City-Test.mmdb /opt/authentik-data/geoip/GeoLite2-City.mmdb; \
+  cp /opt/authentik/tests/geoip/GeoLite2-ASN-Test.mmdb /opt/authentik-data/geoip/GeoLite2-ASN.mmdb; \
+  cp /opt/authentik/tests/geoip/GeoLite2-City-Test.mmdb /opt/authentik-data/geoip/GeoLite2-City.mmdb; \
   cp -r /opt/authentik/blueprints /opt/authentik-data/; \
   rm -r /opt/authentik/blueprints; \
   find /opt/authentik-data -path '*/lost+found' -prune -o -exec chown authentik:authentik {} +"

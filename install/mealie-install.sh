@@ -23,13 +23,14 @@ $STD apt install -y \
   libldap-common \
   libssl-dev \
   libldap2 \
+  ffmpeg \
   gosu \
   iproute2
 msg_ok "Installed Dependencies"
 
-PYTHON_VERSION="3.12" setup_uv
 PG_VERSION="16" setup_postgresql
 fetch_and_deploy_gh_release "mealie" "mealie-recipes/mealie" "tarball"
+PYTHON_VERSION="3.12" UV_PROJECT_DIR="/opt/mealie" setup_uv
 PG_DB_NAME="mealie_db" PG_DB_USER="mealie_user" PG_DB_GRANT_SUPERUSER="true" setup_postgresql_db
 
 if [[ -f /opt/mealie/frontend/pnpm-lock.yaml ]]; then
@@ -98,6 +99,14 @@ PRODUCTION=true
 HOST=0.0.0.0
 PORT=9000
 BASE_URL=http://${LOCAL_IP}:9000
+
+# Reverse proxy auth (Mealie v3.29.0+). Disabled by default.
+# To enable: set REVERSE_PROXY_AUTH_ENABLED=true, set a secret, then restart mealie.
+# REVERSE_PROXY_AUTH_ENABLED=false
+# REVERSE_PROXY_AUTH_HEADER=X-Forwarded-User
+# REVERSE_PROXY_AUTH_SIGNUP_ENABLED=false
+# REVERSE_PROXY_AUTH_SECRET=
+# REVERSE_PROXY_AUTH_SECRET_HEADER=X-Mealie-Reverse-Proxy-Secret
 EOF
 msg_ok "Wrote Environment File"
 

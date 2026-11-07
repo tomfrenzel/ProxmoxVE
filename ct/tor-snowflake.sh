@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-_CS_DEFAULT_URL="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main"
 _cs_boot="${COMMUNITY_SCRIPTS_CORE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../../core}/core/build.func"
 source "$_cs_boot" 2>/dev/null || source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/build.func")
 # Copyright (c) 2021-2025 community-scripts ORG
@@ -29,7 +28,7 @@ function update_script() {
   check_container_resources
 
   msg_info "Updating Container OS"
-  $STD apt update
+  apt_update_safe
   $STD apt upgrade -y
   msg_ok "Updated Container OS"
 
@@ -44,7 +43,8 @@ function update_script() {
     msg_ok "Stopped Service"
 
     CLEAN_INSTALL=1 GITLAB_URL="https://gitlab.torproject.org" fetch_and_deploy_gl_release "tor-snowflake" "tpo/anti-censorship/pluggable-transports/snowflake" "tarball"
-    GO_VERSION="$(grep -m1 '^go ' /opt/tor-snowflake/proxy/go.mod | awk '{print $2}')" setup_go
+    GO_VERSION="$(awk '/^go /{print $2; exit}' /opt/tor-snowflake/go.mod 2>/dev/null || true)"
+    GO_VERSION="${GO_VERSION:-latest}" setup_go
 
     msg_info "Building Snowflake"
     cd /opt/tor-snowflake/proxy
